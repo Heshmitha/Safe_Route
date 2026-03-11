@@ -3,11 +3,19 @@ from flask_cors import CORS
 import networkx as nx
 import osmnx as ox
 import os
+import requests
+import tempfile
 from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GRAPH_FILE = os.path.join(BASE_DIR, 'Backend', 'models', 'chicago_graph.graphml')
+
+# Google Drive direct download URL for the graph file
+GRAPH_URL = "https://drive.google.com/uc?export=download&id=1E8xIvA5wPqZLTk9bIqLqNrno89eioZkT"
+
+# Use /tmp directory (writable on Vercel)
+TEMP_DIR = tempfile.gettempdir()
+GRAPH_FILE = os.path.join(TEMP_DIR, 'chicago_graph.graphml')
 
 # Force Python to find the .env file right next to app.py
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
@@ -22,9 +30,54 @@ CORS(app)
 
 G = None
 
+def download_graph():
+    """Download graph file from Google Drive to temp directory"""
+    global G
+    print(f"📥 Checking for graph file at: {GRAPH_FILE}")
+    
+    # Check if already downloaded
+    if os.path.exists(GRAPH_FILE):
+        file_size = os.path.getsize(GRAPH_FILE)
+        print(f"✅ Graph already exists in temp: {file_size} bytes")
+        return True
+    
+    # Download the file
+    print(f"⏳ Downloading graph from Google Drive...")
+    try:
+        response = requests.get(GRAPH_URL, stream=True, timeout=60)
+        response.raise_for_status()
+        
+        # Get file size for progress tracking
+        total_size = int(response.headers.get('content-length', 0))
+        print(f"📊 File size: {total_size / (1024*1024):.2f} MB")
+        
+        # Download with progress
+        with open(GRAPH_FILE, 'wb') as f:
+            downloaded = 0
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total_size > 0:
+                    percent = (downloaded / total_size) * 100
+                    if int(percent) % 10 == 0:  # Print every 10%
+                        print(f"⏳ Download progress: {percent:.0f}%")
+        
+        print(f"✅ Graph downloaded successfully to temp: {GRAPH_FILE}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to download graph: {e}")
+        return False
+
 def load_graph():
     global G
     print("⏳ Loading Street Network...")
+    
+    # First ensure graph is downloaded
+    if not download_graph():
+        print("❌ Cannot proceed without graph file")
+        return
+    
     if os.path.exists(GRAPH_FILE):
         G = ox.load_graphml(GRAPH_FILE)
         # Convert attributes to numbers

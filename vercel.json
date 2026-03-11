@@ -10,5 +10,10 @@
       "src": "/(.*)",
       "dest": "Backend/app.py"
     }
-  ]
+  ],
+  "functions": {
+    "Backend/app.py": {
+      "excludeFiles": "{**/*.graphml,**/dataset/**,cache/**,screenshots/**}"
+    }
+  }
 }
