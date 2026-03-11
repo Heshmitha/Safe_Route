@@ -1,0 +1,20 @@
+# 1. Secrets and Passwords (CRITICAL)
+.env
+
+# 2. Python Virtual Environments (Huge folders, don't push these!)
+venv/
+env/
+.venv/
+
+# 3. Python Cache (Junk files Python makes automatically)
+__pycache__/
+*.pyc
+*.pyo
+
+# 4. Mac & Windows System Files (Invisible junk files)
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 5. VS Code Settings (Your personal editor settings)
+.vscode/

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>SafeRoute – AI Based Safe Navigation System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #6610f2;
+            --primary-hover: #520dc2;
+            --safe-color: #00BFFF;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --success-color: #28a745;
+            --dark-bg: #1a1a1a;
+            --light-bg: #f8f9fa;
+        }
+
+        body, html { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; background-color: #f0f2f5; color: #333; }
+        
+        /* Navbar - Sticky on all pages/sections */
+        .navbar {
+            background-color: var(--dark-bg); color: white; display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 30px; position: sticky; top: 0; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .navbar .brand { font-size: 24px; font-weight: bold; display: flex; align-items: center; gap: 10px; color: white; text-decoration: none;}
+        .navbar .brand i { color: var(--primary); }
+        .nav-links { display: flex; gap: 20px; }
+        .nav-links a { color: #ccc; text-decoration: none; font-weight: 500; transition: 0.3s; }
+        .nav-links a:hover { color: white; }
+
+        /* Map Container */
+        .map-section { position: relative; width: 100%; height: 85vh; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+        /* Sidebar Panel */
+        .overlay {
+            position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px); padding: 25px; width: 380px; border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 10; max-height: calc(85vh - 40px);
+            overflow-y: auto; box-sizing: border-box; transition: 0.3s;
+        }
+        h2 { margin: 0 0 15px 0; color: #222; font-size: 22px; display: flex; align-items: center; gap: 10px; }
+        
+        /* Travel Mode Selector */
+        .travel-mode-selector { margin-bottom: 15px; }
+        .mode-options { display: flex; gap: 10px; background: #eee; padding: 5px; border-radius: 8px; }
+        .mode-options input[type="radio"] { display: none; }
+        .mode-options label { flex: 1; text-align: center; padding: 8px; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; color: #555; transition: 0.3s; }
+        .mode-options input[type="radio"]:checked + label { background: white; color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-weight: bold; }
+
+        /* Analytics & Summary Cards */
+        .analytics-card, .summary-card { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-top: 15px; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .stat-label { font-weight: bold; color: #555; }
+        .stat-val-red { color: var(--danger-color); font-weight: bold; }
+        .stat-val-blue { color: var(--safe-color); font-weight: bold; }
+        .highlight { background: #e8f5e9; color: #198754; padding: 8px; text-align: center; border-radius: 6px; margin-top: 10px; font-weight: bold; font-size: 14px; border: 1px solid #c3e6cb;}
+        
+        .summary-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #333; border-bottom: 2px solid #eee; padding-bottom: 5px;}
+
+        /* Buttons */
+        .btn { width: 100%; padding: 12px; margin-top: 12px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-reset { background: #6c757d; }
+        .btn-guardian { background: var(--primary); display: none; box-shadow: 0 4px 10px rgba(102, 16, 242, 0.3); }
+        
+        /* Simulation Controls */
+        .sim-controls { margin-top: 20px; padding: 15px; border: 1px solid #ffeeba; display: none; background: #fff8d6; border-radius: 10px; }
+        .sim-btn { width: 100%; margin-bottom: 10px; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: bold; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;}
+        .sim-btn:hover { filter: brightness(1.1); }
+        .btn-walk { background: var(--success-color); }
+        .btn-deviate { background: var(--warning-color); color: #333; }
+        .btn-stop { background: var(--danger-color); }
+
+        /* Floating Emergency Action Button (FAB) */
+        .fab-container { position: absolute; bottom: 30px; right: 30px; z-index: 1000; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+        .fab-menu { display: none; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+        .fab-container:hover .fab-menu { display: flex; animation: fadeIn 0.3s; }
+        .fab-item { background: white; color: #333; padding: 10px 15px; border-radius: 30px; text-decoration: none; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.2s;}
+        .fab-item:hover { background: #eee; }
+        .fab-item.police { color: var(--danger-color); }
+        .fab-main { background: var(--danger-color); color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; box-shadow: 0 4px 15px rgba(220, 53, 69, 0.5); cursor: pointer; transition: 0.3s; border: none;}
+        .fab-main:hover { transform: scale(1.1); }
+
+        /* Live Notifications (Toasts) */
+        #toast-container { position: absolute; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: rgba(0,0,0,0.85); color: white; padding: 15px 20px; border-radius: 8px; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); animation: slideIn 0.4s, fadeOut 0.5s 4.5s forwards; }
+        .toast.warning { border-left: 5px solid var(--warning-color); }
+        .toast.danger { border-left: 5px solid var(--danger-color); }
+        .toast.info { border-left: 5px solid var(--safe-color); }
+        
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* SOS Alert Overlay */
+        #sos-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(220, 53, 69, 0.95); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; animation: flash 1.5s infinite; }
+        @keyframes flash { 0% {background: rgba(220, 53, 69, 0.95);} 50% {background: rgba(180, 20, 30, 0.95);} 100% {background: rgba(220, 53, 69, 0.95);} }
+        .sos-box { background: white; color: #dc3545; padding: 40px; border-radius: 15px; box-shadow: 0 10px 50px rgba(0,0,0,0.5); max-width: 400px; width: 90%; }
+        
+        /* About & Footer Sections */
+        .about-section { padding: 50px 10%; background: white; color: #444; line-height: 1.6; }
+        .about-section h2 { color: #222; font-size: 28px; border-bottom: 3px solid var(--primary); display: inline-block; padding-bottom: 5px; margin-bottom: 20px;}
+        .about-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 20px; }
+        .about-card { background: var(--light-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); border: 1px solid #eee; }
+        .about-card h3 { color: var(--primary); margin-top: 0; display: flex; align-items: center; gap: 10px; }
+        
+        footer { background: var(--dark-bg); color: #ccc; text-align: center; padding: 40px 20px; }
+        footer h3 { color: white; margin-bottom: 5px; }
+        footer p { margin: 5px 0; font-size: 14px; }
+        
+        /* Team Members Styling */
+        .team-section { margin-top: 25px; border-top: 1px solid #333; padding-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;}
+        .team-section h4 { color: white; margin-bottom: 15px; font-size: 18px;}
+        .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; color: #aaa; font-weight: 500;}
+
+        .user-marker { width: 20px; height: 20px; background: #00BFFF; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: all 0.5s ease; }
+        
+        /* Search Fix & Z-Index Layering */
+        #geocoder-start { position: relative; z-index: 20; margin-bottom: 12px; }
+        #geocoder-end { position: relative; z-index: 10; margin-bottom: 15px; }
+        .mapboxgl-ctrl-geocoder { min-width: 100%; z-index: 9999 !important; box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important; border: 1px solid #ddd; border-radius: 8px;}
+        .suggestions-wrapper, .suggestions { z-index: 10000 !important; background-color: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+
+        @media (max-width: 768px) {
+            .overlay { width: 90%; max-width: none; top: auto; bottom: 20px; left: 5%; max-height: 50vh; }
+            .nav-links { display: none; }
+            .team-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sos-overlay">
+        <div class="sos-box">
+            <i class="fas fa-exclamation-triangle fa-3x"></i>
+            <h1 style="margin: 15px 0;">SOS TRIGGERED</h1>
+            <p style="font-size:18px; color: #555;"><strong>Reason:</strong> <span id="sos-reason">Unknown</span></p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="font-weight: bold; font-size: 18px;"><i class="fab fa-whatsapp"></i> Sharing Live Location...</p>
+            <button class="btn" style="background:#6c757d; margin-top:10px; font-size: 16px;" onclick="cancelSOS()">I AM SAFE (Cancel)</button>
+        </div>
+    </div>
+
+    <nav class="navbar">
+        <a href="#" class="brand"><i class="fas fa-shield-alt"></i> SafeRoute</a>
+        <div class="nav-links">
+            <a href="#">Home</a>
+            <a href="#map">Navigation</a>
+            <a href="#about">About Project</a>
+            <a href="#contact">Contact</a>
+        </div>
+    </nav>
+
+    <section class="map-section">
+        <div id="map"></div>
+
+        <div id="toast-container"></div>
+
+        <div class="fab-container">
+            <div class="fab-menu">
+                <a class="fab-item police" href="tel:911"><i class="fas fa-phone-alt"></i> Call Police</a>
+                <div class="fab-item" onclick="triggerSOS('Manual Emergency Trigger')"><i class="fas fa-location-arrow"></i> Share Location</div>
+                <div class="fab-item" onclick="showToast('Searching for nearby Police Stations...', 'info')"><i class="fas fa-building"></i> Police Stations</div>
+                <div class="fab-item" onclick="showToast('Searching for nearby Hospitals...', 'info')"><i class="fas fa-hospital"></i> Hospitals</div>
+            </div>
+            <button class="fab-main"><i class="fas fa-exclamation"></i></button>
+        </div>
+
+        <div class="overlay">
+            <h2>
+                Navigation Panel
+                <i class="fas fa-chevron-up" id="toggle-panel" style="margin-left:auto; cursor:pointer; color:#666; font-size: 16px;" onclick="toggleOverlay()"></i>
+            </h2>
+            
+            <div id="panel-content">
+                
+                <div class="travel-mode-selector">
+                    <span style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 8px; display: block;">
+                        <i class="fas fa-route" style="color:var(--primary);"></i> Travel Mode
+                    </span>
+                    <div class="mode-options">
+                        <input type="radio" id="mode-walk" name="travel-mode" value="walk" checked>
+                        <label for="mode-walk"><i class="fas fa-walking"></i> Walk</label>
+
+                        <input type="radio" id="mode-bike" name="travel-mode" value="bike">
+                        <label for="mode-bike"><i class="fas fa-biking"></i> Bike</label>
+
+                        <input type="radio" id="mode-car" name="travel-mode" value="car">
+                        <label for="mode-car"><i class="fas fa-car"></i> Car</label>
+                    </div>
+                </div>
+
+                <div id="geocoder-start"></div>
+                <div id="geocoder-end"></div>
+                
+                <div id="status" style="text-align:center; font-size:13px; color:#666; font-weight: 500;">Enter locations to compare...</div>
+
+                <div id="analytics" class="analytics-card">
+                    <div class="stat-row" style="border-bottom:1px solid #ddd; padding-bottom:5px;">
+                        <span>Route Options</span> <span>Dist</span> <span>Risk Score</span>
+                    </div>
+                    <div class="stat-row" style="margin-top: 10px;">
+                        <span class="stat-label" style="color:var(--danger-color);"><i class="fas fa-circle" style="font-size: 10px; vertical-align: middle;"></i> Shortest</span>
+                        <span id="dist-red">-- km</span>
+                        <span id="score-red" class="stat-val-red">--</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label" style="color:var(--safe-color);"><i class="fas fa-circle" style="font-size: 10px; vertical-align: middle;"></i> Safe AI</span>
+                        <span id="dist-blue">-- km</span>
+                        <span id="score-blue" class="stat-val-blue">--</span>
+                    </div>
+                </div>
+
+                <div id="summary-card" class="summary-card">
+                    <div class="summary-title"><i class="fas fa-info-circle"></i> AI Route Summary</div>
+                    <div style="font-size: 13px; color: #555; margin-bottom: 5px;"><strong>From:</strong> <span id="sum-start">Select location...</span></div>
+                    <div style="font-size: 13px; color: #555; margin-bottom: 10px;"><strong>To:</strong> <span id="sum-end">Select location...</span></div>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <div style="flex: 1; background: #f1f3f5; padding: 10px; border-radius: 8px; text-align: center;">
+                            <i id="sum-mode-icon" class="fas fa-walking" style="color: #666; font-size: 16px;"></i>
+                            <div id="sum-time" style="font-weight: bold; margin-top: 5px; font-size: 14px;">-- min</div>
+                        </div>
+                        <div style="flex: 1; background: #f1f3f5; padding: 10px; border-radius: 8px; text-align: center;">
+                            <i class="fas fa-shield-alt" style="color: var(--safe-color); font-size: 16px;"></i>
+                            <div id="sum-safety" style="font-weight: bold; margin-top: 5px; font-size: 14px;">Safe</div>
+                        </div>
+                    </div>
+                    <div id="safety-verdict" class="highlight"><i class="fas fa-check-circle"></i> Awaiting Analysis</div>
+                </div>
+
+                <button onclick="activateGuardian()" id="btn-guardian" class="btn btn-guardian"><i class="fas fa-shield-check"></i> Start Guardian Mode</button>
+                
+                <div id="sim-controls" class="sim-controls">
+                    <h4 style="margin:0 0 10px 0; color:#856404;"><i class="fas fa-user-shield"></i> Simulation Panel</h4>
+                    <button onclick="startWalking()" class="sim-btn btn-walk">
+                        <i id="sim-walk-icon" class="fas fa-walking"></i> <span id="sim-walk-text">Walk Safely</span>
+                    </button>
+                    <button onclick="simulateDeviation()" class="sim-btn btn-deviate">
+                        <i class="fas fa-route"></i> Simulate Wrong Turn (Away)
+                    </button>
+                    <button onclick="simulateStop()" class="sim-btn btn-stop">
+                        <i class="fas fa-hand-paper"></i> Simulate Suspicious Stop
+                    </button>
+                </div>
+
+                <button onclick="resetMap()" class="btn btn-reset"><i class="fas fa-redo"></i> Reset Map</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="about-section">
+        <h2>About SafeRoute</h2>
+        <p style="font-size: 18px;">Traditional navigation apps optimize strictly for speed and distance. <strong>SafeRoute</strong> changes the paradigm by utilizing Machine Learning to prioritize pedestrian safety, routing users around historically high-crime zones and providing live guardian monitoring.</p>
+        
+        <div class="about-grid">
+            <div class="about-card">
+                <h3><i class="fas fa-brain"></i> AI Pathfinding</h3>
+                <p>SafeRoute utilizes K-Means Clustering on historical crime datasets to generate risk zones. A custom heuristic algorithm powered by OSMnx calculates safe street weights, applying penalties to road nodes near violent crime clusters.</p>
+            </div>
+            <div class="about-card">
+                <h3><i class="fas fa-database"></i> Dataset & Mapping</h3>
+                <p>Built using massive public safety datasets. The dynamic street graph is rendered flawlessly using Mapbox GL JS, ensuring a smooth, dark-mode focused UI tailored for nighttime navigation.</p>
+            </div>
+            <div class="about-card">
+                <h3><i class="fas fa-satellite-dish"></i> Guardian Mode</h3>
+                <p>Once a route is active, Guardian Mode acts as a digital chaperone. If route deviations or suspicious prolonged stops are detected, the app automatically triggers an SOS alert and shares live GPS coordinates via WhatsApp.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer id="contact">
+        <h3>SafeRoute – AI Powered Safe Navigation System</h3>
+        <p>Final Year Team Project – BTech Artificial Intelligence and Data Science</p>
+        
+        <div class="team-section">
+            <h4>Team Members:</h4>
+            <div class="team-grid">
+                <div>Jasmeen</div>
+                <div>Heshmitha Sai</div>
+                <div>Sowmya</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 25px; font-size: 20px; gap: 15px; display: flex; justify-content: center;">
+            <i class="fab fa-github" style="cursor: pointer; transition: 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#ccc'"></i>
+            <i class="fab fa-linkedin" style="cursor: pointer; transition: 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#ccc'"></i>
+        </div>
+    </footer>
+
+    <script>
+        // Securely injected from Python Flask! This specific variable name 'mapbox_token' must match app.py!
+        mapboxgl.accessToken = '{{ mapbox_token }}';
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v11',
+            center: [-87.6298, 41.8781],
+            zoom: 12
+        });
+
+        let startPoint, endPoint, userMarker;
+        let safePathCoords = [];
+        let simulationInterval;
+        let startLocationName = "Origin";
+        let endLocationName = "Destination";
+        
+        // --- Travel Mode Variables ---
+        let currentTravelMode = 'walk';
+        let currentDistBlueKm = 0; // Stored to dynamically calculate time without API re-fetch
+
+        // --- Live Toast Notifications ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = 'info-circle';
+            if(type === 'warning') icon = 'exclamation-triangle';
+            if(type === 'danger') icon = 'radiation';
+            
+            toast.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                if(container.contains(toast)) container.removeChild(toast);
+            }, 5000);
+        }
+
+        // --- Travel Mode Listener ---
+        document.querySelectorAll('input[name="travel-mode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                currentTravelMode = e.target.value;
+                updateEstimatedTime();
+            });
+        });
+
+        function updateEstimatedTime() {
+            if (currentDistBlueKm === 0) return; // No route plotted yet
+
+            let speed = 5; // Default walking speed km/h
+            let label = "min walk";
+            let iconClass = "fa-walking";
+            let simText = "Walk Safely";
+
+            if (currentTravelMode === 'bike') {
+                speed = 15; // km/h
+                label = "min ride";
+                iconClass = "fa-biking";
+                simText = "Ride Safely";
+            } else if (currentTravelMode === 'car') {
+                speed = 40; // km/h
+                label = "min drive";
+                iconClass = "fa-car";
+                simText = "Drive Safely";
+            }
+
+            let estimatedMins = Math.round((currentDistBlueKm / speed) * 60);
+            
+            // Prevent showing "0 mins" for extremely short distances
+            if (estimatedMins < 1) estimatedMins = 1;
+
+            // Update DOM Elements
+            document.getElementById('sum-time').innerText = estimatedMins + " " + label;
+            document.getElementById('sum-mode-icon').className = `fas ${iconClass}`;
+            document.getElementById('sim-walk-icon').className = `fas ${iconClass}`;
+            document.getElementById('sim-walk-text').innerText = simText;
+        }
+
+        // Search Bars
+        const geocoderStart = new MapboxGeocoder({ accessToken: mapboxgl.accessToken, mapboxgl: mapboxgl, placeholder: 'Start Location', marker: false });
+        document.getElementById('geocoder-start').appendChild(geocoderStart.onAdd(map));
+        
+        const geocoderEnd = new MapboxGeocoder({ accessToken: mapboxgl.accessToken, mapboxgl: mapboxgl, placeholder: 'Destination', marker: false });
+        document.getElementById('geocoder-end').appendChild(geocoderEnd.onAdd(map));
+
+        geocoderStart.on('result', (e) => { 
+            startPoint = e.result.geometry.coordinates; 
+            startLocationName = e.result.text;
+            checkAndRoute(); 
+        });
+        geocoderEnd.on('result', (e) => { 
+            endPoint = e.result.geometry.coordinates; 
+            endLocationName = e.result.text;
+            checkAndRoute(); 
+        });
+
+        function toggleOverlay() {
+            const content = document.getElementById('panel-content');
+            const icon = document.getElementById('toggle-panel');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            } else {
+                content.style.display = 'none';
+                icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        }
+
+        function checkAndRoute() {
+            if (startPoint && endPoint) {
+                document.getElementById('status').innerHTML = "<i class='fas fa-spinner fa-spin'></i> AI is analyzing routes...";
+                showToast("Calculating safe path...", "info");
+                
+                // Add Markers
+                new mapboxgl.Marker({ color: '#28a745' }).setLngLat(startPoint).addTo(map);
+                new mapboxgl.Marker({ color: '#dc3545' }).setLngLat(endPoint).addTo(map);
+
+                // Fetch logic
+                fetch('http://127.0.0.1:5000/api/get_safe_path', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start_lon: startPoint[0], start_lat: startPoint[1], end_lon: endPoint[0], end_lat: endPoint[1] })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    let safePolyline = data.safe_path.map(p => [p[1], p[0]]);
+                    let riskyPolyline = data.risky_path.map(p => [p[1], p[0]]);
+
+                    safePolyline.unshift(startPoint);
+                    safePolyline.push(endPoint);
+                    riskyPolyline.unshift(startPoint);
+                    riskyPolyline.push(endPoint);
+
+                    safePathCoords = safePolyline;
+
+                    drawLayer('risky', riskyPolyline, '#dc3545'); // Red
+                    drawLayer('safe', safePolyline, '#00BFFF');   // Blue
+
+                    // UPDATE ANALYTICS
+                    document.getElementById('analytics').style.display = 'block';
+                    document.getElementById('summary-card').style.display = 'block';
+                    
+                    let distRedKm = (data.risky_dist / 1000).toFixed(2);
+                    currentDistBlueKm = (data.safe_dist / 1000).toFixed(2); // Store globally for travel mode recalculation
+                    
+                    document.getElementById('dist-red').innerText = distRedKm + " km";
+                    document.getElementById('score-red').innerText = data.risky_score;
+                    document.getElementById('dist-blue').innerText = currentDistBlueKm + " km";
+                    document.getElementById('score-blue').innerText = data.safe_score;
+                    
+                    // UPDATE SUMMARY CARD TEXT
+                    document.getElementById('sum-start').innerText = startLocationName;
+                    document.getElementById('sum-end').innerText = endLocationName;
+                    
+                    // Trigger the dynamic time calculation
+                    updateEstimatedTime();
+
+                    let improvement = 0;
+                    if(data.risky_score > 0) {
+                        improvement = ((data.risky_score - data.safe_score) / data.risky_score * 100).toFixed(0);
+                    }
+                    document.getElementById('safety-verdict').innerHTML = `<i class="fas fa-shield-alt"></i> This route is ${improvement}% safer than the shortest path!`;
+                    showToast(`Route optimized. ${improvement}% safer path found.`, 'info');
+
+                    document.getElementById('btn-guardian').style.display = 'block';
+                    document.getElementById('status').innerHTML = "<i class='fas fa-check-circle' style='color: green;'></i> Analysis Complete";
+                    
+                    // Fit map bounds
+                    const bounds = new mapboxgl.LngLatBounds(startPoint, startPoint);
+                    bounds.extend(endPoint);
+                    map.fitBounds(bounds, { padding: 50 });
+                });
+            }
+        }
+
+        function drawLayer(id, coords, color) {
+            if (map.getLayer(id)) map.removeLayer(id);
+            if (map.getSource(id)) map.removeSource(id);
+            map.addSource(id, { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } } });
+            map.addLayer({ id: id, type: 'line', source: id, layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': color, 'line-width': 6, 'line-opacity': 0.8 } });
+        }
+
+        // --- GUARDIAN & SIMULATION LOGIC ---
+        function activateGuardian() {
+            document.getElementById('btn-guardian').style.display = 'none';
+            document.getElementById('sim-controls').style.display = 'block';
+            
+            if (!userMarker) {
+                const el = document.createElement('div'); el.className = 'user-marker';
+                userMarker = new mapboxgl.Marker(el).setLngLat(startPoint).addTo(map);
+            }
+            showToast("Guardian Mode Active. GPS tracking initiated.", "info");
+        }
+
+        function startWalking() {
+            clearInterval(simulationInterval);
+            let i = 0;
+            showToast("Journey started. Stay safe!", "info");
+            simulationInterval = setInterval(() => {
+                if (i >= safePathCoords.length) { 
+                    clearInterval(simulationInterval); 
+                    showToast("You have arrived safely!", "info");
+                    return; 
+                }
+                userMarker.setLngLat(safePathCoords[i]);
+                map.panTo(safePathCoords[i]);
+                i++;
+            }, 400); 
+        }
+
+        function simulateDeviation() {
+            clearInterval(simulationInterval);
+            let currentPos = userMarker.getLngLat();
+            let badPos = { lng: currentPos.lng + 0.005, lat: currentPos.lat + 0.005 }; 
+            userMarker.setLngLat(badPos);
+            map.panTo(badPos);
+
+            showToast("Warning: Route deviation detected! High crime area ahead.", "danger");
+            setTimeout(() => { triggerSOS("Route Deviation Detected!"); }, 1500);
+        }
+
+        function simulateStop() {
+            clearInterval(simulationInterval);
+            showToast("Warning: Suspicious prolonged stop detected.", "warning");
+            setTimeout(() => { triggerSOS("Unusual Stoppage Detected (30s timeout)"); }, 2500); 
+        }
+
+        function triggerSOS(reason) {
+            document.getElementById('sos-overlay').style.display = 'flex';
+            document.getElementById('sos-reason').innerText = reason;
+            
+            setTimeout(() => {
+                const lat = userMarker ? userMarker.getLngLat().lat : startPoint[1];
+                const lng = userMarker ? userMarker.getLngLat().lng : startPoint[0];
+                const googleMapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+                const waText = `🚨 SOS! I need help. Reason: ${reason}. My Live Location: ${googleMapsLink}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank');
+            }, 2000);
+        }
+
+        function cancelSOS() {
+            document.getElementById('sos-overlay').style.display = 'none';
+            showToast("SOS Alert Cancelled.", "info");
+        }
+
+        function resetMap() { location.reload(); }
+    </script>
+</body>
+</html>
