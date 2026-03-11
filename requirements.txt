@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn
+flask
+flask-cors
+networkx
+osmnx
+python-dotenv
+asgiref
