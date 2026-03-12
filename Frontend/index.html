@@ -416,8 +416,8 @@
                 new mapboxgl.Marker({ color: '#28a745' }).setLngLat(startPoint).addTo(map);
                 new mapboxgl.Marker({ color: '#dc3545' }).setLngLat(endPoint).addTo(map);
 
-                // Fetch logic
-                fetch('http://127.0.0.1:5000/api/get_safe_path', {
+                // Fetch logic - UPDATED URL TO RENDER BACKEND
+                fetch('https://safe-route-o2ck.onrender.com/api/get_safe_path', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ start_lon: startPoint[0], start_lat: startPoint[1], end_lon: endPoint[0], end_lat: endPoint[1] })
@@ -470,6 +470,11 @@
                     const bounds = new mapboxgl.LngLatBounds(startPoint, startPoint);
                     bounds.extend(endPoint);
                     map.fitBounds(bounds, { padding: 50 });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('status').innerHTML = "<i class='fas fa-exclamation-triangle' style='color: red;'></i> Error connecting to server";
+                    showToast("Failed to connect to backend. Please try again.", "danger");
                 });
             }
         }
