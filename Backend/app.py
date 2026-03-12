@@ -27,9 +27,10 @@ app = Flask(__name__, template_folder='../Frontend', static_folder='../Frontend/
 
 # FIXED: Configure CORS to allow your frontend domains
 CORS(app, origins=[
-    "https://safe-route-1-4r1q.onrender.com",  # Your frontend URL
-    "http://localhost:5000",                    # Local development
-    "http://127.0.0.1:5000"                     # Local development
+    "https://final-safe-route.vercel.app",      # Your Vercel frontend
+    "https://safe-route-1-4r1q.onrender.com",  # Old frontend (keep for now)
+    "http://localhost:5000",
+    "http://127.0.0.1:5000"
 ])
 
 G = None
