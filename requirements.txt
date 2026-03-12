@@ -8,3 +8,4 @@ osmnx
 python-dotenv
 asgiref
 requests
+gunicorn

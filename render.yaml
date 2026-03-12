@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: safe-route-backend
+    runtime: python
+    repo: https://github.com/Heshmitha/Safe_Route
+    plan: free  # Upgrade to starter ($7/mo) for always-on
+    region: ohio  # Closest to Chicago data
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn Backend.app:app
+    envVars:
+      - key: MAPBOX_TOKEN
+        sync: false  # You'll add this manually in Render dashboard
