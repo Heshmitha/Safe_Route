@@ -24,8 +24,13 @@ MAPBOX_TOKEN = os.getenv('MAPBOX_TOKEN')
 print("🔑 Loaded Mapbox Token:", MAPBOX_TOKEN)
 
 app = Flask(__name__, template_folder='../Frontend', static_folder='../Frontend/static')
-CORS(app)
 
+# FIXED: Configure CORS to allow your frontend domains
+CORS(app, origins=[
+    "https://safe-route-1-4r1q.onrender.com",  # Your frontend URL
+    "http://localhost:5000",                    # Local development
+    "http://127.0.0.1:5000"                     # Local development
+])
 
 G = None
 
