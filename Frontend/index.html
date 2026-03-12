@@ -417,7 +417,7 @@
                 new mapboxgl.Marker({ color: '#dc3545' }).setLngLat(endPoint).addTo(map);
 
                 // Fetch logic - UPDATED URL TO RENDER BACKEND
-                fetch('https://safe-route-o2ck.onrender.com/api/get_safe_path', {
+                fetch('https://safe-route-backend-7lz4.onrender.com/api/get_safe_path', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ start_lon: startPoint[0], start_lat: startPoint[1], end_lon: endPoint[0], end_lat: endPoint[1] })
