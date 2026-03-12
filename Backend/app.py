@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Google Drive direct download URL for the graph file
-GRAPH_URL = "https://drive.google.com/uc?export=download&id=18UjvX-FJZ4nD1dX4CBiBxNfnwwjKgRxI"
+GRAPH_URL = "https://drive.google.com/uc?export=download&id=1mVlVxUjjRxBxs3dWAV7Iyqn8lKFHg_5h"
 # Use /tmp directory (writable on Vercel)
 TEMP_DIR = tempfile.gettempdir()
 GRAPH_FILE = os.path.join(TEMP_DIR, 'chicago_graph.graphml')
