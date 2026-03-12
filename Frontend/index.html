@@ -422,8 +422,23 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ start_lon: startPoint[0], start_lat: startPoint[1], end_lon: endPoint[0], end_lat: endPoint[1] })
                 })
-                .then(res => res.json())
+                .then(res => {
+                    // Check if response is OK (status 200-299)
+                    if (!res.ok) {
+                        return res.json().then(errData => {
+                            throw new Error(errData.error || `Server error: ${res.status}`);
+                        });
+                    }
+                    return res.json();
+                })
                 .then(data => {
+                    // SAFETY CHECK: Verify we have the expected data structure
+                    if (!data || !data.safe_path || !data.risky_path) {
+                        document.getElementById('status').innerHTML = "<i class='fas fa-map-marked-alt' style='color: orange;'></i> Route not found in this area. Try downtown Chicago (Loop, Near North, Near West)";
+                        showToast("Please select points within downtown Chicago (Loop, Near North, Near West areas)", "warning");
+                        return;
+                    }
+                    
                     let safePolyline = data.safe_path.map(p => [p[1], p[0]]);
                     let riskyPolyline = data.risky_path.map(p => [p[1], p[0]]);
 
@@ -473,8 +488,8 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    document.getElementById('status').innerHTML = "<i class='fas fa-exclamation-triangle' style='color: red;'></i> Error connecting to server";
-                    showToast("Failed to connect to backend. Please try again.", "danger");
+                    document.getElementById('status').innerHTML = "<i class='fas fa-exclamation-triangle' style='color: red;'></i> " + (error.message || "Error connecting to server");
+                    showToast(error.message || "Failed to connect to backend. Please try again.", "danger");
                 });
             }
         }
